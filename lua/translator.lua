@@ -32,6 +32,13 @@ end
 --- Get visual selection text
 ---@return string|nil
 local function get_visual_selection()
+  -- Use getregion for proper UTF-8 handling (Neovim 0.10+)
+  if vim.fn.has("nvim-0.10") == 1 then
+    local region = vim.fn.getregion(vim.fn.getpos("'<"), vim.fn.getpos("'>"), { type = vim.fn.visualmode() })
+    return table.concat(region, "\n")
+  end
+
+  -- Fallback for older Neovim versions
   local start_pos = vim.fn.getpos("'<")
   local end_pos = vim.fn.getpos("'>")
 
@@ -44,22 +51,20 @@ local function get_visual_selection()
     return nil
   end
 
-  local lines = vim.fn.getline(start_line, end_line)
-  if type(lines) == "string" then
-    lines = { lines }
-  end
+  local lines = vim.api.nvim_buf_get_lines(0, start_line - 1, end_line, false)
 
   if #lines == 0 then
     return nil
   end
 
-  -- Handle single line selection
+  -- Handle single line selection with UTF-8 awareness
   if #lines == 1 then
-    lines[1] = string.sub(lines[1], start_col, end_col)
+    -- Use strpart for UTF-8 safe substring extraction
+    lines[1] = vim.fn.strpart(lines[1], start_col - 1, end_col - start_col + 1)
   else
     -- Handle multi-line selection
-    lines[1] = string.sub(lines[1], start_col)
-    lines[#lines] = string.sub(lines[#lines], 1, end_col)
+    lines[1] = vim.fn.strpart(lines[1], start_col - 1)
+    lines[#lines] = vim.fn.strpart(lines[#lines], 0, end_col)
   end
 
   return table.concat(lines, "\n")
