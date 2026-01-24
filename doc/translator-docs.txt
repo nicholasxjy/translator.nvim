@@ -1,0 +1,148 @@
+*translator-docs.txt*     For Neovim >= 0.8.0    Last change: 2026 January 24
+
+==============================================================================
+Table of Contents                            *translator-docs-table-of-contents*
+
+1. A Neovim Translator Plugin           |translator-docs-translator-plugin|
+  - Prerequisites                       |translator-docs-prerequisites|
+  - Installation                        |translator-docs-installation|
+  - Usage                               |translator-docs-usage|
+  - Configuration                       |translator-docs-configuration|
+  - Features                            |translator-docs-features|
+2. Commands                                        |translator-docs-commands|
+3. Links                                              |translator-docs-links|
+
+==============================================================================
+1. A Neovim Translator Plugin           *translator-docs-translator-plugin*
+
+A neovim plugin that wraps translate-shell <https://github.com/soimort/translate-shell>
+to enable text translation directly from Neovim.
+
+PREREQUISITES                                   *translator-docs-prerequisites*
+
+Make sure you have translate-shell installed:
+
+macOS:
+>
+    brew install translate-shell
+<
+
+Linux (Debian/Ubuntu):
+>
+    sudo apt-get install translate-shell
+<
+
+Or install via wget:
+>
+    wget git.io/trans
+    chmod +x ./trans
+<
+
+INSTALLATION                                     *translator-docs-installation*
+
+Using lazy.nvim <https://github.com/folke/lazy.nvim>:
+>lua
+    {
+        "nicholasxjy/translator.nvim",
+        event = "VeryLazy",
+        opts = {
+            default_target_lang = "zh",  -- Default target language
+            default_source_lang = nil,   -- Default source language (nil = auto-detect)
+            popup_width = 80,            -- Popup window width
+            popup_height = 20,           -- Popup window max height
+        },
+    }
+<
+
+USAGE                                                   *translator-docs-usage*
+
+Basic Commands:
+>vim
+    " Translate specific text to Chinese
+    :Trans text=hello to=zh
+
+    " Translate visual selection to Chinese
+    :'<,'>Trans to=zh
+
+    " Translate word under cursor to Chinese
+    :TransWord to=zh
+
+    " Translate word under cursor using default target language
+    :TransWord
+<
+
+CONFIGURATION                                   *translator-docs-configuration*
+
+Configuration with keybindings:
+>lua
+    {
+        "nicholasxjy/translator.nvim",
+        event = "VeryLazy",
+        opts = {
+            default_target_lang = "zh",
+            popup_width = 80,
+            popup_height = 20,
+        },
+        keys = {
+            -- Translate visual selection
+            { "<leader>tc", ":'<,'>Trans to=zh<cr>", mode = "v", desc = "Translate to Chinese" },
+            { "<leader>te", ":'<,'>Trans to=en<cr>", mode = "v", desc = "Translate to English" },
+            -- Translate word under cursor
+            { "<leader>tw", "<cmd>TransWord to=zh<cr>", mode = "n", desc = "Translate word to Chinese" },
+            { "<leader>tt", "<cmd>TransWord<cr>", mode = "n", desc = "Translate word" },
+        }
+    }
+<
+
+FEATURES                                             *translator-docs-features*
+
+- Popup Window: Translation results displayed in centered popup with rounded borders
+- Visual Selection: Select text and translate it directly
+- Word Translation: Translate the word under cursor with :TransWord command
+- Full Translation Results: Display complete translation information including
+  pronunciation, definitions, and examples
+- Markdown Formatting: Translation results displayed with markdown syntax highlighting
+- Flexible Parameters: Support for text=, to=, and from= parameters
+- Error Handling: Shows notifications when translation fails
+- Easy Close: Press q or <Esc> to close the popup window
+
+==============================================================================
+2. Commands                                        *translator-docs-commands*
+
+                                                                      *:Trans*
+:Trans [text={text}] [to={lang}] [from={lang}]
+    Translate text using translate-shell. If no text is provided, translates
+    visual selection.
+
+    Parameters:
+        text    - Text to translate (optional, uses visual selection if not provided)
+        to      - Target language (e.g., zh, en, ja)
+        from    - Source language (optional, auto-detect if not provided)
+
+    Examples:
+        :Trans text=hello to=zh
+        :'<,'>Trans to=zh
+        :Trans text=你好 from=zh to=en
+
+                                                                  *:TransWord*
+:TransWord [to={lang}] [from={lang}]
+    Translate the word under cursor using translate-shell.
+
+    Parameters:
+        to      - Target language (e.g., zh, en, ja)
+        from    - Source language (optional, auto-detect if not provided)
+
+    Examples:
+        :TransWord to=zh
+        :TransWord from=en to=zh
+        :TransWord
+
+==============================================================================
+3. Links                                              *translator-docs-links*
+
+1. *translate-shell*: https://github.com/soimort/translate-shell
+2. *lazy.nvim*: https://github.com/folke/lazy.nvim
+
+Generated by panvimdoc <https://github.com/kdheepak/panvimdoc>
+
+vim:tw=78:ts=8:noet:ft=help:norl:

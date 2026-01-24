@@ -5,6 +5,14 @@
 
 A neovim plugin that wrapped the [translate-shell](https://github.com/soimort/translate-shell), so we can translate text directly from neovim.
 
+## Screenshots
+
+### Translate Visual Selection
+![Screenshot 1](assets/Screenshot1.png)
+
+### Translate Word Under Cursor
+![Screenshot 2](assets/Screenshot2.png)
+
 ## Prerequisites
 
 Make sure you have [translate-shell](https://github.com/soimort/translate-shell) installed:
