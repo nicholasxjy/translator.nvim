@@ -44,10 +44,10 @@ chmod +x ./trans
 
 ```vim
 " Translate specific text to Chinese
-:Trans text=hello to=:zh
+:Trans text=hello to=zh
 
 " Translate visual selection to Chinese (select text first, then run command)
-:'<,'>Trans to=:zh
+:'<,'>Trans to=zh
 
 " Translate with source and target language
 :Trans text=你好 from=zh to=en
@@ -69,11 +69,11 @@ chmod +x ./trans
     },
     keys = {
         -- Translate visual selection to Chinese
-        { "<leader>tc", ":'<,'>Trans to=:zh<cr>", mode = "v", desc = "Translate to Chinese" },
+        { "<leader>tc", ":'<,'>Trans to=zh<cr>", mode = "v", desc = "Translate to Chinese" },
         -- Translate visual selection to English
-        { "<leader>te", ":'<,'>Trans to=:en<cr>", mode = "v", desc = "Translate to English" },
+        { "<leader>te", ":'<,'>Trans to=en<cr>", mode = "v", desc = "Translate to English" },
         -- Translate visual selection to Japanese
-        { "<leader>tj", ":'<,'>Trans to=:ja<cr>", mode = "v", desc = "Translate to Japanese" },
+        { "<leader>tj", ":'<,'>Trans to=ja<cr>", mode = "v", desc = "Translate to Japanese" },
     }
 }
 ```

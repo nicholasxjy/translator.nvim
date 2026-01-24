@@ -22,8 +22,8 @@ M.translate = function(text, target_lang, source_lang)
     table.insert(cmd, ":" .. target_lang)
   end
 
-  -- Add brief mode flag
-  table.insert(cmd, "-brief")
+  -- Add border flag for better formatting
+  table.insert(cmd, "-no-ansi")
 
   -- Add text to translate
   table.insert(cmd, text)
