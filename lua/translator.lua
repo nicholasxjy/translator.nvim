@@ -23,6 +23,12 @@ M.setup = function(args)
   M.config = vim.tbl_deep_extend("force", M.config, args or {})
 end
 
+--- Get current word under cursor
+---@return string|nil
+local function get_current_word()
+  return vim.fn.expand("<cword>")
+end
+
 --- Get visual selection text
 ---@return string|nil
 local function get_visual_selection()
@@ -135,6 +141,24 @@ M.translate = function(opts)
   if result then
     show_popup(result)
   end
+end
+
+--- Translate word under cursor
+---@param opts table|nil Options table with to, from fields
+M.translate_word = function(opts)
+  opts = opts or {}
+
+  -- Get word under cursor
+  local word = get_current_word()
+
+  if not word or word == "" then
+    vim.notify("No word under cursor", vim.log.levels.WARN)
+    return
+  end
+
+  -- Add the word to opts and call translate
+  opts.text = word
+  M.translate(opts)
 end
 
 return M
