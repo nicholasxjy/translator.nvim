@@ -75,6 +75,29 @@ chmod +x ./trans
 :Trans text=你好 from=zh to=en
 ```
 
+### Lua API
+
+You can also call the translation functions directly from Lua code:
+
+```lua
+-- Translate current word under cursor
+require('translator').transCurWord({ to = "zh" })
+require('translator').transCurWord({ from = "en", to = "zh" })
+
+-- Translate visual selection
+require('translator').transVisualSel({ to = "en" })
+require('translator').transVisualSel({ from = "zh", to = "en" })
+
+-- Example: Custom keybinding using Lua API
+vim.keymap.set('n', '<leader>tw', function()
+    require('translator').transCurWord({ to = "zh" })
+end, { desc = "Translate word to Chinese" })
+
+vim.keymap.set('v', '<leader>ts', function()
+    require('translator').transVisualSel({ to = "zh" })
+end, { desc = "Translate selection to Chinese" })
+```
+
 ### Configuration with Keybindings
 
 ```lua

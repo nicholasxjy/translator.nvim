@@ -10,7 +10,8 @@ Table of Contents                            *translator-docs-table-of-contents*
   - Configuration                       |translator-docs-configuration|
   - Features                            |translator-docs-features|
 2. Commands                                        |translator-docs-commands|
-3. Links                                              |translator-docs-links|
+3. Lua API                                          |translator-docs-lua-api|
+4. Links                                              |translator-docs-links|
 
 ==============================================================================
 1. A Neovim Translator Plugin           *translator-docs-translator-plugin*
@@ -148,7 +149,54 @@ FEATURES                                             *translator-docs-features*
         :TransWord
 
 ==============================================================================
-3. Links                                              *translator-docs-links*
+3. Lua API                                            *translator-docs-lua-api*
+
+The plugin provides Lua functions that can be called directly from your
+configuration or custom scripts.
+
+                                                            *transCurWord()*
+transCurWord({opts})
+    Translate the word under cursor.
+
+    Parameters:
+        {opts}  Table with optional fields:
+                - to    Target language (e.g., "zh", "en", "ja")
+                - from  Source language (optional, auto-detect if not provided)
+
+    Examples:
+>lua
+        require('translator').transCurWord({ to = "zh" })
+        require('translator').transCurWord({ from = "en", to = "zh" })
+<
+
+                                                          *transVisualSel()*
+transVisualSel({opts})
+    Translate the visual selection.
+
+    Parameters:
+        {opts}  Table with optional fields:
+                - to    Target language (e.g., "zh", "en", "ja")
+                - from  Source language (optional, auto-detect if not provided)
+
+    Examples:
+>lua
+        require('translator').transVisualSel({ to = "en" })
+        require('translator').transVisualSel({ from = "zh", to = "en" })
+<
+
+    Custom keybinding examples:
+>lua
+        vim.keymap.set('n', '<leader>tw', function()
+            require('translator').transCurWord({ to = "zh" })
+        end, { desc = "Translate word to Chinese" })
+
+        vim.keymap.set('v', '<leader>ts', function()
+            require('translator').transVisualSel({ to = "zh" })
+        end, { desc = "Translate selection to Chinese" })
+<
+
+==============================================================================
+4. Links                                              *translator-docs-links*
 
 1. *translate-shell*: https://github.com/soimort/translate-shell
 2. *lazy.nvim*: https://github.com/folke/lazy.nvim

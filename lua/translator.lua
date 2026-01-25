@@ -177,4 +177,27 @@ M.translate_word = function(opts)
   M.translate(opts)
 end
 
+--- Translate current word under cursor (exported API)
+---@param opts table|nil Options table with to, from fields (e.g., { to = "zh", from = "en" })
+M.transCurWord = function(opts)
+  M.translate_word(opts)
+end
+
+--- Translate visual selection (exported API)
+---@param opts table|nil Options table with to, from fields (e.g., { to = "zh", from = "en" })
+M.transVisualSel = function(opts)
+  opts = opts or {}
+  -- Get visual selection
+  local text = get_visual_selection()
+
+  if not text or text == "" then
+    vim.notify("No text selected", vim.log.levels.WARN)
+    return
+  end
+
+  -- Add the text to opts and call translate
+  opts.text = text
+  M.translate(opts)
+end
+
 return M
