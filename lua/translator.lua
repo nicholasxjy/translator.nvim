@@ -45,11 +45,21 @@ end
 local function get_visual_selection()
   -- Use getregion for proper UTF-8 handling (Neovim 0.10+)
   if vim.fn.has("nvim-0.10") == 1 then
-    local region = vim.fn.getregion(vim.fn.getpos("'<"), vim.fn.getpos("'>"), { type = vim.fn.visualmode() })
-    return table.concat(region, "\n")
+    -- Get visual mode, default to 'v' if not in visual mode
+    local vmode = vim.fn.visualmode()
+    if vmode == "" or vmode == nil then
+      vmode = "v"  -- Default to characterwise visual mode
+    end
+
+    -- Use pcall to safely call getregion
+    local ok, region = pcall(vim.fn.getregion, vim.fn.getpos("'<"), vim.fn.getpos("'>"), { type = vmode })
+    if ok and region then
+      return table.concat(region, "\n")
+    end
+    -- If getregion fails, fall through to the fallback method
   end
 
-  -- Fallback for older Neovim versions
+  -- Fallback for older Neovim versions or if getregion fails
   local start_pos = vim.fn.getpos("'<")
   local end_pos = vim.fn.getpos("'>")
 
