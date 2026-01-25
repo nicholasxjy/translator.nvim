@@ -40,8 +40,13 @@ chmod +x ./trans
     opts = {
         default_target_lang = "zh",  -- Default target language
         default_source_lang = nil,   -- Default source language (nil = auto-detect)
-        popup_width = 80,            -- Popup window width
-        popup_height = 20,           -- Popup window max height
+        window = {
+            width = 80,              -- Popup window width
+            height = 20,             -- Popup window max height
+            title = " Translation ", -- Popup window title
+            border = "rounded",      -- Border style: "rounded", "single", "double", "solid", "shadow", "none"
+            title_pos = "center",    -- Title position: "center", "left", "right"
+        },
     },
 }
 ```
@@ -78,8 +83,13 @@ chmod +x ./trans
     event = "VeryLazy",
     opts = {
         default_target_lang = "zh",
-        popup_width = 80,
-        popup_height = 20,
+        window = {
+            width = 80,
+            height = 20,
+            title = " Translation ",
+            border = "rounded",
+            title_pos = "center",
+        },
     },
     keys = {
         -- Translate visual selection to Chinese

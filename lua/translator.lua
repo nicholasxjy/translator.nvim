@@ -1,15 +1,26 @@
 local translator = require("translator.module")
 
+---@class WindowConfig
+---@field width number Popup window width
+---@field height number Popup window height
+---@field title string Popup window title
+---@field border string Border style (e.g., "rounded", "single", "double", "solid")
+---@field title_pos string Title position (e.g., "center", "left", "right")
+
 ---@class Config
 ---@field default_target_lang string Default target language
 ---@field default_source_lang string|nil Default source language
----@field popup_width number Popup window width
----@field popup_height number Popup window height
+---@field window WindowConfig Window configuration
 local config = {
   default_target_lang = "zh",
   default_source_lang = nil,
-  popup_width = 80,
-  popup_height = 20,
+  window = {
+    width = 80,
+    height = 20,
+    title = " Translation ",
+    border = "rounded",
+    title_pos = "center",
+  },
 }
 
 ---@class Translator
@@ -80,8 +91,8 @@ local function show_popup(text)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 
   -- Calculate popup position (center of screen)
-  local width = M.config.popup_width
-  local height = math.min(M.config.popup_height, #lines + 2)
+  local width = M.config.window.width
+  local height = math.min(M.config.window.height, #lines + 2)
   local row = math.floor((vim.o.lines - height) / 2)
   local col = math.floor((vim.o.columns - width) / 2)
 
@@ -93,9 +104,9 @@ local function show_popup(text)
     row = row,
     col = col,
     style = "minimal",
-    border = "rounded",
-    title = " Translation ",
-    title_pos = "center",
+    border = M.config.window.border,
+    title = M.config.window.title,
+    title_pos = M.config.window.title_pos,
   }
 
   local win = vim.api.nvim_open_win(buf, true, opts)
