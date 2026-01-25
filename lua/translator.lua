@@ -45,11 +45,21 @@ end
 local function get_visual_selection()
   -- Use getregion for proper UTF-8 handling (Neovim 0.10+)
   if vim.fn.has("nvim-0.10") == 1 then
-    local region = vim.fn.getregion(vim.fn.getpos("'<"), vim.fn.getpos("'>"), { type = vim.fn.visualmode() })
-    return table.concat(region, "\n")
+    -- Get visual mode, default to 'v' if not in visual mode
+    local vmode = vim.fn.visualmode()
+    if vmode == "" or vmode == nil then
+      vmode = "v"  -- Default to characterwise visual mode
+    end
+
+    -- Use pcall to safely call getregion
+    local ok, region = pcall(vim.fn.getregion, vim.fn.getpos("'<"), vim.fn.getpos("'>"), { type = vmode })
+    if ok and region then
+      return table.concat(region, "\n")
+    end
+    -- If getregion fails, fall through to the fallback method
   end
 
-  -- Fallback for older Neovim versions
+  -- Fallback for older Neovim versions or if getregion fails
   local start_pos = vim.fn.getpos("'<")
   local end_pos = vim.fn.getpos("'>")
 
@@ -79,6 +89,50 @@ local function get_visual_selection()
   end
 
   return table.concat(lines, "\n")
+end
+
+--- Show loading window
+---@return number|nil win_id Window ID of the loading window
+local function show_loading()
+  local buf = vim.api.nvim_create_buf(false, true)
+
+  -- Set loading message
+  local lines = { "  Translating...  " }
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+
+  -- Calculate position (center of screen)
+  local width = 20
+  local height = 1
+  local row = math.floor((vim.o.lines - height) / 2)
+  local col = math.floor((vim.o.columns - width) / 2)
+
+  -- Create loading window
+  local opts = {
+    relative = "editor",
+    width = width,
+    height = height,
+    row = row,
+    col = col,
+    style = "minimal",
+    border = "rounded",
+    focusable = false,
+  }
+
+  local win = vim.api.nvim_open_win(buf, false, opts)
+
+  -- Set buffer options
+  vim.api.nvim_buf_set_option(buf, "modifiable", false)
+  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
+
+  return win
+end
+
+--- Close loading window
+---@param win_id number|nil Window ID to close
+local function close_loading(win_id)
+  if win_id and vim.api.nvim_win_is_valid(win_id) then
+    vim.api.nvim_win_close(win_id, true)
+  end
 end
 
 --- Show translation result in popup window
@@ -145,8 +199,14 @@ M.translate = function(opts)
   -- Get source language
   local source_lang = opts.from or M.config.default_source_lang
 
+  -- Show loading window
+  local loading_win = show_loading()
+
   -- Perform translation
   local result, err = translator.translate(text, target_lang, source_lang)
+
+  -- Close loading window
+  close_loading(loading_win)
 
   if err then
     vim.notify(err, vim.log.levels.ERROR)
