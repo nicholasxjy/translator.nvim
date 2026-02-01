@@ -43,26 +43,43 @@ end
 --- Get visual selection text
 ---@return string|nil
 local function get_visual_selection()
+  -- Check if currently in visual mode
+  local mode = vim.fn.mode()
+  local in_visual = mode == "v" or mode == "V" or mode == "\22" -- \22 is <C-V>
+
+  -- Determine positions based on whether we're in visual mode
+  local start_pos, end_pos, vmode
+  if in_visual then
+    -- In visual mode: use "v" mark (start of selection) and "." (cursor)
+    start_pos = vim.fn.getpos("v")
+    end_pos = vim.fn.getpos(".")
+    vmode = mode
+    -- Exit visual mode to set the marks for future use
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
+  else
+    -- Not in visual mode: use '< and '> marks
+    start_pos = vim.fn.getpos("'<")
+    end_pos = vim.fn.getpos("'>")
+    vmode = vim.fn.visualmode()
+    if vmode == "" or vmode == nil then
+      vmode = "v"
+    end
+  end
+
+  -- Ensure start_pos is before end_pos
+  if start_pos[2] > end_pos[2] or (start_pos[2] == end_pos[2] and start_pos[3] > end_pos[3]) then
+    start_pos, end_pos = end_pos, start_pos
+  end
+
   -- Use getregion for proper UTF-8 handling (Neovim 0.10+)
   if vim.fn.has("nvim-0.10") == 1 then
-    -- Get visual mode, default to 'v' if not in visual mode
-    local vmode = vim.fn.visualmode()
-    if vmode == "" or vmode == nil then
-      vmode = "v"  -- Default to characterwise visual mode
-    end
-
-    -- Use pcall to safely call getregion
-    local ok, region = pcall(vim.fn.getregion, vim.fn.getpos("'<"), vim.fn.getpos("'>"), { type = vmode })
-    if ok and region then
+    local ok, region = pcall(vim.fn.getregion, start_pos, end_pos, { type = vmode })
+    if ok and region and #region > 0 then
       return table.concat(region, "\n")
     end
-    -- If getregion fails, fall through to the fallback method
   end
 
   -- Fallback for older Neovim versions or if getregion fails
-  local start_pos = vim.fn.getpos("'<")
-  local end_pos = vim.fn.getpos("'>")
-
   local start_line = start_pos[2]
   local start_col = start_pos[3]
   local end_line = end_pos[2]
@@ -80,10 +97,8 @@ local function get_visual_selection()
 
   -- Handle single line selection with UTF-8 awareness
   if #lines == 1 then
-    -- Use strpart for UTF-8 safe substring extraction
     lines[1] = vim.fn.strpart(lines[1], start_col - 1, end_col - start_col + 1)
   else
-    -- Handle multi-line selection
     lines[1] = vim.fn.strpart(lines[1], start_col - 1)
     lines[#lines] = vim.fn.strpart(lines[#lines], 0, end_col)
   end
