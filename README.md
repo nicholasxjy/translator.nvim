@@ -1,9 +1,9 @@
 # A Neovim Translator Plugin
 
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ellisonleao/nvim-plugin-template/lint-test.yml?branch=main&style=for-the-badge)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/nicholasxjy/translator.nvim/lint-test.yml?branch=main&style=for-the-badge)
 ![Lua](https://img.shields.io/badge/Made%20with%20Lua-blueviolet.svg?style=for-the-badge&logo=lua)
 
-A neovim plugin that wrapped the [translate-shell](https://github.com/soimort/translate-shell), so we can translate text directly from neovim.
+A Neovim plugin that wraps [translate-shell](https://github.com/soimort/translate-shell) so you can translate text directly from Neovim.
 
 ## Screenshots
 
@@ -58,6 +58,12 @@ chmod +x ./trans
 ```vim
 " Translate specific text to Chinese
 :Trans text=hello to=zh
+
+" Translate a sentence without quotes
+:Trans hello world to=zh
+
+" Translate a sentence with quotes
+:Trans text="hello world" to=zh
 
 " Translate visual selection to Chinese (select text first, then run command)
 :'<,'>Trans to=zh
@@ -134,9 +140,10 @@ end, { desc = "Translate selection to Chinese" })
 - **Popup Window**: Translation results are displayed in a centered popup window with rounded borders
 - **Visual Selection**: Select text and translate it directly
 - **Word Translation**: Translate the word under cursor with `:TransWord` command
+- **Multi-word Command Input**: `:Trans` supports bare text and quoted `text=` values
 - **Full Translation Results**: Display complete translation information including pronunciation, definitions, and examples
 - **Markdown Formatting**: Translation results are displayed with markdown syntax highlighting
 - **Flexible Parameters**: Support for `text=`, `to=`, and `from=` parameters
-- **Error Handling**: Shows notifications when translation fails
+- **Async Execution**: Translation runs asynchronously to avoid blocking Neovim
+- **Error Handling**: Shows clear notifications when translation fails or `trans` is missing
 - **Easy Close**: Press `q` or `<Esc>` to close the popup window
-
