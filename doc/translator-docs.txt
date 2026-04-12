@@ -67,6 +67,12 @@ Basic Commands:
     " Translate specific text to Chinese
     :Trans text=hello to=zh
 
+    " Translate a sentence without quotes
+    :Trans hello world to=zh
+
+    " Translate a sentence with quotes
+    :Trans text="hello world" to=zh
+
     " Translate visual selection to Chinese
     :'<,'>Trans to=zh
 
@@ -110,11 +116,13 @@ FEATURES                                             *translator-docs-features*
 - Popup Window: Translation results displayed in centered popup with rounded borders
 - Visual Selection: Select text and translate it directly
 - Word Translation: Translate the word under cursor with :TransWord command
+- Multi-word Command Input: :Trans supports bare text and quoted text=
 - Full Translation Results: Display complete translation information including
   pronunciation, definitions, and examples
 - Markdown Formatting: Translation results displayed with markdown syntax highlighting
 - Flexible Parameters: Support for text=, to=, and from= parameters
-- Error Handling: Shows notifications when translation fails
+- Async Execution: Translation runs asynchronously to avoid blocking Neovim
+- Error Handling: Shows clear notifications when translation fails or trans is missing
 - Easy Close: Press q or <Esc> to close the popup window
 
 ==============================================================================
@@ -132,6 +140,8 @@ FEATURES                                             *translator-docs-features*
 
     Examples:
         :Trans text=hello to=zh
+        :Trans hello world to=zh
+        :Trans text="hello world" to=zh
         :'<,'>Trans to=zh
         :Trans text=你好 from=zh to=en
 

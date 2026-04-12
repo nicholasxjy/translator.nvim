@@ -15,10 +15,10 @@ jobs:
           args: --color always --check lua
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
         nvim-versions: ['stable', 'nightly']
     name: test
     steps:

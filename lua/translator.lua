@@ -11,7 +11,7 @@ local translator = require("translator.module")
 ---@field default_target_lang string Default target language
 ---@field default_source_lang string|nil Default source language
 ---@field window WindowConfig Window configuration
-local config = {
+local defaults = {
   default_target_lang = "zh",
   default_source_lang = nil,
   window = {
@@ -27,11 +27,11 @@ local config = {
 local M = {}
 
 ---@type Config
-M.config = config
+M.config = vim.deepcopy(defaults)
 
 ---@param args Config?
 M.setup = function(args)
-  M.config = vim.tbl_deep_extend("force", M.config, args or {})
+  M.config = vim.tbl_deep_extend("force", vim.deepcopy(defaults), args or {})
 end
 
 --- Get current word under cursor
@@ -106,6 +106,16 @@ local function get_visual_selection()
   return table.concat(lines, "\n")
 end
 
+local function clamp(value, min_value, max_value)
+  return math.max(min_value, math.min(value, max_value))
+end
+
+local function get_editor_bounds()
+  local width = clamp(vim.o.columns - 4, 1, vim.o.columns)
+  local height = clamp(vim.o.lines - 4, 1, vim.o.lines)
+  return width, height
+end
+
 --- Show loading window
 ---@return number|nil win_id Window ID of the loading window
 local function show_loading()
@@ -116,10 +126,11 @@ local function show_loading()
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 
   -- Calculate position (center of screen)
-  local width = 20
+  local max_width, _ = get_editor_bounds()
+  local width = math.min(20, max_width)
   local height = 1
-  local row = math.floor((vim.o.lines - height) / 2)
-  local col = math.floor((vim.o.columns - width) / 2)
+  local row = math.max(math.floor((vim.o.lines - height) / 2), 0)
+  local col = math.max(math.floor((vim.o.columns - width) / 2), 0)
 
   -- Create loading window
   local opts = {
@@ -160,10 +171,12 @@ local function show_popup(text)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 
   -- Calculate popup position (center of screen)
-  local width = M.config.window.width
-  local height = math.min(M.config.window.height, #lines + 2)
-  local row = math.floor((vim.o.lines - height) / 2)
-  local col = math.floor((vim.o.columns - width) / 2)
+  local max_width, max_height = get_editor_bounds()
+  local width = clamp(M.config.window.width, 1, max_width)
+  local requested_height = math.max(#lines + 2, 1)
+  local height = clamp(math.min(M.config.window.height, requested_height), 1, max_height)
+  local row = math.max(math.floor((vim.o.lines - height) / 2), 0)
+  local col = math.max(math.floor((vim.o.columns - width) / 2), 0)
 
   -- Create popup window
   local opts = {
@@ -217,21 +230,21 @@ M.translate = function(opts)
   -- Show loading window
   local loading_win = show_loading()
 
-  -- Perform translation
-  local result, err = translator.translate(text, target_lang, source_lang)
+  translator.translate(text, target_lang, source_lang, function(result, err)
+    close_loading(loading_win)
 
-  -- Close loading window
-  close_loading(loading_win)
+    if err then
+      vim.notify(err, vim.log.levels.ERROR)
+      return
+    end
 
-  if err then
-    vim.notify(err, vim.log.levels.ERROR)
-    return
-  end
+    if result and result ~= "" then
+      show_popup(result)
+      return
+    end
 
-  -- Show result in popup
-  if result then
-    show_popup(result)
-  end
+    vim.notify("Translation returned no result", vim.log.levels.WARN)
+  end)
 end
 
 --- Translate word under cursor
@@ -248,8 +261,7 @@ M.translate_word = function(opts)
   end
 
   -- Add the word to opts and call translate
-  opts.text = word
-  M.translate(opts)
+  M.translate(vim.tbl_extend("force", {}, opts, { text = word }))
 end
 
 --- Translate current word under cursor (exported API)
@@ -271,8 +283,7 @@ M.transVisualSel = function(opts)
   end
 
   -- Add the text to opts and call translate
-  opts.text = text
-  M.translate(opts)
+  M.translate(vim.tbl_extend("force", {}, opts, { text = text }))
 end
 
 return M
