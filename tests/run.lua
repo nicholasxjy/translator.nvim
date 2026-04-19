@@ -169,7 +169,7 @@ it("shows a warning when there is no text to translate", function()
   end)
 end)
 
-it("clamps popup size to the current editor dimensions", function()
+it("opens the popup relative to the cursor and clamps its size", function()
   local popup_opts
   local original_columns = vim.o.columns
   local original_lines = vim.o.lines
@@ -188,6 +188,7 @@ it("clamps popup size to the current editor dimensions", function()
           window = {
             width = 120,
             height = 50,
+            winhighlight = "Normal:NormalFloat,FloatBorder:FloatBorder",
           },
         })
         translator.translate({ text = "hello" })
@@ -201,8 +202,16 @@ it("clamps popup size to the current editor dimensions", function()
   vim.o.lines = original_lines
 
   assert_truthy(popup_opts ~= nil, "expected popup window to open")
+  assert_equal(popup_opts.relative, "cursor", "popup should open relative to the cursor")
+  assert_equal(popup_opts.row, 1, "popup row should be offset from the cursor")
+  assert_equal(popup_opts.col, 0, "popup col should align with the cursor column")
   assert_equal(popup_opts.width, 36, "popup width should be clamped")
   assert_equal(popup_opts.height, 4, "popup height should be clamped")
+  assert_equal(
+    popup_opts.winhighlight,
+    "Normal:NormalFloat,FloatBorder:FloatBorder",
+    "popup should forward configured winhighlight"
+  )
 end)
 
 it("returns a clear error when translate-shell is unavailable", function()

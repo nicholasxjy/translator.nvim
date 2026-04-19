@@ -55,6 +55,7 @@ Using lazy.nvim <https://github.com/folke/lazy.nvim>:
                 title = " Translation ", -- Popup window title
                 border = "rounded",      -- Border style
                 title_pos = "center",    -- Title position
+                winhighlight = nil,      -- Optional float highlight overrides
             },
         },
     }
@@ -98,6 +99,7 @@ Configuration with keybindings:
                 title = " Translation ",
                 border = "rounded",
                 title_pos = "center",
+                winhighlight = nil,
             },
         },
         keys = {
@@ -113,7 +115,7 @@ Configuration with keybindings:
 
 FEATURES                                             *translator-docs-features*
 
-- Popup Window: Translation results displayed in centered popup with rounded borders
+- Popup Window: Translation results displayed in cursor-relative popup with configurable highlights
 - Visual Selection: Select text and translate it directly
 - Word Translation: Translate the word under cursor with :TransWord command
 - Multi-word Command Input: :Trans supports bare text and quoted text=

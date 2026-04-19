@@ -6,6 +6,7 @@ local translator = require("translator.module")
 ---@field title string Popup window title
 ---@field border string Border style (e.g., "rounded", "single", "double", "solid")
 ---@field title_pos string Title position (e.g., "center", "left", "right")
+---@field winhighlight string|nil Window highlight overrides passed to nvim_open_win
 
 ---@class Config
 ---@field default_target_lang string Default target language
@@ -20,6 +21,7 @@ local defaults = {
     title = " Translation ",
     border = "rounded",
     title_pos = "center",
+    winhighlight = nil,
   },
 }
 
@@ -170,25 +172,24 @@ local function show_popup(text)
   local lines = vim.split(text, "\n")
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 
-  -- Calculate popup position (center of screen)
+  -- Clamp popup size to the current editor dimensions.
   local max_width, max_height = get_editor_bounds()
   local width = clamp(M.config.window.width, 1, max_width)
   local requested_height = math.max(#lines + 2, 1)
   local height = clamp(math.min(M.config.window.height, requested_height), 1, max_height)
-  local row = math.max(math.floor((vim.o.lines - height) / 2), 0)
-  local col = math.max(math.floor((vim.o.columns - width) / 2), 0)
 
   -- Create popup window
   local opts = {
-    relative = "editor",
+    relative = "cursor",
     width = width,
     height = height,
-    row = row,
-    col = col,
+    row = 1,
+    col = 0,
     style = "minimal",
     border = M.config.window.border,
     title = M.config.window.title,
     title_pos = M.config.window.title_pos,
+    winhighlight = M.config.window.winhighlight,
   }
 
   local win = vim.api.nvim_open_win(buf, true, opts)

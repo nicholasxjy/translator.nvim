@@ -46,6 +46,7 @@ chmod +x ./trans
             title = " Translation ", -- Popup window title
             border = "rounded",      -- Border style: "rounded", "single", "double", "solid", "shadow", "none"
             title_pos = "center",    -- Title position: "center", "left", "right"
+            winhighlight = nil,      -- Optional float highlight overrides, e.g. "Normal:NormalFloat,FloatBorder:FloatBorder"
         },
     },
 }
@@ -118,6 +119,7 @@ end, { desc = "Translate selection to Chinese" })
             title = " Translation ",
             border = "rounded",
             title_pos = "center",
+            winhighlight = nil,
         },
     },
     keys = {
@@ -137,7 +139,7 @@ end, { desc = "Translate selection to Chinese" })
 
 ### Features
 
-- **Popup Window**: Translation results are displayed in a centered popup window with rounded borders
+- **Popup Window**: Translation results are displayed in a cursor-relative popup window with configurable highlights
 - **Visual Selection**: Select text and translate it directly
 - **Word Translation**: Translate the word under cursor with `:TransWord` command
 - **Multi-word Command Input**: `:Trans` supports bare text and quoted `text=` values
