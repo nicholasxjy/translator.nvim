@@ -1,4 +1,4 @@
-*translator-docs.txt*     For Neovim >= 0.8.0    Last change: 2026 January 24
+*translator-docs.txt*     For Neovim >= 0.8.0    Last change: 2026 April 19
 
 ==============================================================================
 Table of Contents                            *translator-docs-table-of-contents*
@@ -58,6 +58,32 @@ Using lazy.nvim <https://github.com/folke/lazy.nvim>:
             },
         },
     }
+<
+
+Using vim.pack (Neovim 0.12+):
+`vim.pack` is Neovim's built-in plugin manager and requires a recent Nvim
+build with vim.pack support plus `git` available in PATH.
+>lua
+    vim.pack.add({
+        { src = "https://github.com/nicholasxjy/translator.nvim" },
+    }, { load = true })
+
+    require("translator").setup({
+        default_target_lang = "zh",
+        default_source_lang = nil,
+        window = {
+            width = 80,
+            height = 20,
+            title = " Translation ",
+            border = "rounded",
+            title_pos = "center",
+        },
+    })
+<
+
+After adding the plugin, restart Nvim if needed. To update plugins managed by
+vim.pack, run: >
+    :lua vim.pack.update()
 <
 
 USAGE                                                   *translator-docs-usage*

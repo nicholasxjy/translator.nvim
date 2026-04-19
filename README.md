@@ -51,6 +51,32 @@ chmod +x ./trans
 }
 ```
 
+### Using `vim.pack` (Neovim 0.12+)
+
+`vim.pack` is Neovim's built-in plugin manager and currently requires a recent
+Neovim build with `vim.pack` support plus `git` on your `PATH`.
+
+```lua
+vim.pack.add({
+    { src = "https://github.com/nicholasxjy/translator.nvim" },
+}, { load = true })
+
+require("translator").setup({
+    default_target_lang = "zh",  -- Default target language
+    default_source_lang = nil,   -- Default source language (nil = auto-detect)
+    window = {
+        width = 80,              -- Popup window width
+        height = 20,             -- Popup window max height
+        title = " Translation ", -- Popup window title
+        border = "rounded",      -- Border style: "rounded", "single", "double", "solid", "shadow", "none"
+        title_pos = "center",    -- Title position: "center", "left", "right"
+    },
+})
+```
+
+After adding the plugin, restart Neovim if needed. To update plugins managed by
+`vim.pack`, run `:lua vim.pack.update()`.
+
 ## How to use
 
 ### Basic Commands
