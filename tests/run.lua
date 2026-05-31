@@ -49,16 +49,21 @@ end
 
 local function with_fake_windows(fn)
   local original_open_win = vim.api.nvim_open_win
+  local original_win_set_option = vim.api.nvim_win_set_option
   local original_is_valid = vim.api.nvim_win_is_valid
   local original_close = vim.api.nvim_win_close
   local windows = {}
   local next_win = 1000
 
-  vim.api.nvim_open_win = function(_, _, opts)
+  vim.api.nvim_open_win = function(buf, _, opts)
     next_win = next_win + 1
-    windows[#windows + 1] = vim.deepcopy(opts)
+    local window = vim.deepcopy(opts)
+    window.buf = buf
+    windows[#windows + 1] = window
     return next_win
   end
+
+  vim.api.nvim_win_set_option = function() end
 
   vim.api.nvim_win_is_valid = function(win)
     return win >= 1001 and win <= next_win
@@ -69,6 +74,7 @@ local function with_fake_windows(fn)
   local ok, err = pcall(fn, windows)
 
   vim.api.nvim_open_win = original_open_win
+  vim.api.nvim_win_set_option = original_win_set_option
   vim.api.nvim_win_is_valid = original_is_valid
   vim.api.nvim_win_close = original_close
 
@@ -77,7 +83,7 @@ local function with_fake_windows(fn)
   end
 end
 
-vim.cmd("runtime plugin/translator.lua")
+vim.cmd("source plugin/translator.lua")
 
 it("parses bare text and key-value args", function()
   local command = require("translator.command")
@@ -144,11 +150,7 @@ it("translates the current word and normalizes the target language", function()
     end)
   end)
 
-  assert_equal(
-    captured,
-    { text = "hello", target_lang = "zh", source_lang = nil },
-    "translate_word should use <cword>"
-  )
+  assert_equal(captured, { text = "hello", target_lang = "zh", source_lang = nil }, "translate_word should use <cword>")
 end)
 
 it("shows a warning when there is no text to translate", function()
@@ -202,7 +204,41 @@ it("clamps popup size to the current editor dimensions", function()
 
   assert_truthy(popup_opts ~= nil, "expected popup window to open")
   assert_equal(popup_opts.width, 36, "popup width should be clamped")
-  assert_equal(popup_opts.height, 4, "popup height should be clamped")
+  assert_equal(popup_opts.height, 6, "popup height should be clamped")
+end)
+
+it("renders the redesigned translation popup with source, result, and key hints", function()
+  local popup_buf
+
+  with_fake_windows(function(windows)
+    with_notify_capture(function()
+      with_translator({
+        translate = function(_, _, _, callback)
+          callback("你好\n\nhello, hi", nil)
+        end,
+      }, function(translator)
+        translator.setup({
+          window = {
+            width = 80,
+            height = 20,
+          },
+        })
+        translator.translate({ text = "hello", from = "en", to = "zh" })
+      end)
+    end)
+
+    popup_buf = windows[2].buf
+  end)
+
+  local lines = vim.api.nvim_buf_get_lines(popup_buf, 0, -1, false)
+  local content = table.concat(lines, "\n")
+
+  assert_truthy(content:find("SOURCE", 1, true), "popup should show a source pane")
+  assert_truthy(content:find("TRANSLATION  en -> zh", 1, true), "popup should show language direction")
+  assert_truthy(content:find("hello", 1, true), "popup should include the source text")
+  assert_truthy(content:find("你好", 1, true), "popup should include the translation")
+  assert_truthy(content:find("<leader>ts", 1, true), "popup should include selection shortcut")
+  assert_truthy(content:find("q close", 1, true), "popup should include close hint")
 end)
 
 it("returns a clear error when translate-shell is unavailable", function()
@@ -262,9 +298,12 @@ it("runs translate-shell asynchronously through jobstart", function()
     done = true
   end)
 
-  assert_truthy(vim.wait(200, function()
-    return done
-  end), "expected async callback to complete")
+  assert_truthy(
+    vim.wait(200, function()
+      return done
+    end),
+    "expected async callback to complete"
+  )
 
   vim.fn.executable = original_executable
   vim.fn.jobstart = original_jobstart
