@@ -208,7 +208,7 @@ it("clamps popup size to the current editor dimensions", function()
 end)
 
 it("renders the redesigned translation popup with source, result, and key hints", function()
-  local popup_buf
+  local popup_windows
 
   with_fake_windows(function(windows)
     with_notify_capture(function()
@@ -227,11 +227,23 @@ it("renders the redesigned translation popup with source, result, and key hints"
       end)
     end)
 
-    popup_buf = windows[2].buf
+    popup_windows = vim.deepcopy(windows)
   end)
 
-  local lines = vim.api.nvim_buf_get_lines(popup_buf, 0, -1, false)
-  local content = table.concat(lines, "\n")
+  local content_parts = {}
+  local result_window
+
+  for _, window in ipairs(popup_windows) do
+    local lines = vim.api.nvim_buf_get_lines(window.buf, 0, -1, false)
+    local window_content = table.concat(lines, "\n")
+    content_parts[#content_parts + 1] = window_content
+
+    if window_content:find("TRANSLATION  en -> zh", 1, true) then
+      result_window = window
+    end
+  end
+
+  local content = table.concat(content_parts, "\n")
 
   assert_truthy(content:find("translator.nvim", 1, true), "popup should show the plugin title")
   assert_truthy(content:find("SOURCE", 1, true), "popup should show a source pane")
@@ -241,6 +253,8 @@ it("renders the redesigned translation popup with source, result, and key hints"
   assert_truthy(content:find("<leader>ts", 1, true), "popup should include selection shortcut")
   assert_truthy(content:find("q close", 1, true), "popup should include close hint")
   assert_truthy(content:find("from: en  to: zh", 1, true), "popup should include the footer language state")
+  assert_truthy(result_window ~= nil, "popup should render a separate translation pane")
+  assert_equal(result_window.focusable, true, "translation pane should be focusable for scrolling")
 end)
 
 it("returns a clear error when translate-shell is unavailable", function()
