@@ -19,7 +19,7 @@ local defaults = {
   window = {
     width = 80,
     height = 20,
-    title = " Translation ",
+    title = " translator.nvim ",
     border = "rounded",
     title_pos = "center",
   },
@@ -129,6 +129,16 @@ local function pad_right(text, width)
   end
 
   return text .. string.rep(" ", padding)
+end
+
+local function center_text(text, width)
+  local padding = width - display_width(text)
+  if padding <= 0 then
+    return text
+  end
+
+  local left_padding = math.floor(padding / 2)
+  return string.rep(" ", left_padding) .. text .. string.rep(" ", padding - left_padding)
 end
 
 local function wrap_display(text, width)
@@ -244,13 +254,15 @@ local function build_popup_lines(source_text, result, source_lang, target_lang, 
 
   if width < 64 then
     local lines = {
-      "Source (" .. direction .. ")",
+      center_text("translator.nvim", width),
+      string.rep("─", width),
+      "SOURCE  visual selection",
       string.rep("-", math.min(width, 28)),
     }
 
     vim.list_extend(lines, wrap_display(source_text, width))
     lines[#lines + 1] = ""
-    lines[#lines + 1] = "Translation"
+    lines[#lines + 1] = "TRANSLATION  " .. direction
     lines[#lines + 1] = string.rep("-", math.min(width, 28))
     vim.list_extend(lines, wrap_display(result, width))
     lines[#lines + 1] = ""
@@ -263,14 +275,14 @@ local function build_popup_lines(source_text, result, source_lang, target_lang, 
   local left_width = math.floor(width * 0.36)
   local right_width = width - left_width - display_width(separator)
   local source_lines = {
-    "SOURCE  visual selection",
+    "SOURCE  VISUAL SELECTION",
     string.rep("─", left_width),
   }
   vim.list_extend(source_lines, wrap_display(source_text, left_width))
   source_lines[#source_lines + 1] = ""
-  source_lines[#source_lines + 1] = "<leader>ts  translate selection"
-  source_lines[#source_lines + 1] = "<leader>tw  translate word"
-  source_lines[#source_lines + 1] = ":Trans to=" .. to .. "  command mode"
+  vim.list_extend(source_lines, wrap_display("<leader>ts  translate selection", left_width))
+  vim.list_extend(source_lines, wrap_display("<leader>tw  translate word", left_width))
+  vim.list_extend(source_lines, wrap_display(":Trans to=" .. to .. "  command mode", left_width))
 
   local result_lines = {
     "TRANSLATION  " .. direction,
@@ -278,15 +290,21 @@ local function build_popup_lines(source_text, result, source_lang, target_lang, 
   }
   vim.list_extend(result_lines, wrap_display(result, right_width))
 
-  local lines = {}
+  local lines = {
+    center_text("translator.nvim", width),
+    string.rep("─", width),
+  }
   local line_count = math.max(#source_lines, #result_lines)
 
   for i = 1, line_count do
     lines[#lines + 1] = pad_right(source_lines[i] or "", left_width) .. separator .. (result_lines[i] or "")
   end
 
-  lines[#lines + 1] = ""
-  lines[#lines + 1] = "q close  Esc close  j/k scroll"
+  lines[#lines + 1] = string.rep("─", width)
+  lines[#lines + 1] = pad_right(
+    "q close  Esc close  j/k scroll",
+    width - display_width("from: " .. from .. "  to: " .. to)
+  ) .. "from: " .. from .. "  to: " .. to
 
   return lines
 end
@@ -302,7 +320,12 @@ local function apply_popup_highlights(buf, lines)
   for i, line in ipairs(lines) do
     local line_index = i - 1
 
-    if line:find("SOURCE", 1, true) or line:find("TRANSLATION", 1, true) or line:find("^Translation") then
+    if
+      line:find("translator.nvim", 1, true)
+      or line:find("SOURCE", 1, true)
+      or line:find("TRANSLATION", 1, true)
+      or line:find("^Translation")
+    then
       vim.api.nvim_buf_add_highlight(buf, ns, "TranslatorHeader", line_index, 0, -1)
     elseif line:find("─", 1, true) or line:match("^%-+$") then
       vim.api.nvim_buf_add_highlight(buf, ns, "TranslatorBorder", line_index, 0, -1)

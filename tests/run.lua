@@ -233,12 +233,14 @@ it("renders the redesigned translation popup with source, result, and key hints"
   local lines = vim.api.nvim_buf_get_lines(popup_buf, 0, -1, false)
   local content = table.concat(lines, "\n")
 
+  assert_truthy(content:find("translator.nvim", 1, true), "popup should show the plugin title")
   assert_truthy(content:find("SOURCE", 1, true), "popup should show a source pane")
   assert_truthy(content:find("TRANSLATION  en -> zh", 1, true), "popup should show language direction")
   assert_truthy(content:find("hello", 1, true), "popup should include the source text")
   assert_truthy(content:find("你好", 1, true), "popup should include the translation")
   assert_truthy(content:find("<leader>ts", 1, true), "popup should include selection shortcut")
   assert_truthy(content:find("q close", 1, true), "popup should include close hint")
+  assert_truthy(content:find("from: en  to: zh", 1, true), "popup should include the footer language state")
 end)
 
 it("returns a clear error when translate-shell is unavailable", function()
