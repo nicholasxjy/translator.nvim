@@ -10,10 +10,12 @@ local translator = require("translator.module")
 ---@class Config
 ---@field default_target_lang string Default target language
 ---@field default_source_lang string|nil Default source language
+---@field timeout_ms number Translation command timeout in milliseconds
 ---@field window WindowConfig Window configuration
 local defaults = {
   default_target_lang = "zh",
   default_source_lang = nil,
+  timeout_ms = 15000,
   window = {
     width = 80,
     height = 20,
@@ -398,7 +400,7 @@ M.translate = function(opts)
     end
 
     vim.notify("Translation returned no result", vim.log.levels.WARN)
-  end)
+  end, M.config.timeout_ms)
 end
 
 --- Translate word under cursor

@@ -313,6 +313,52 @@ it("runs translate-shell asynchronously through jobstart", function()
   assert_equal(err, nil, "did not expect an error on success")
 end)
 
+it("times out a translate-shell job that never exits", function()
+  package.loaded["translator.module"] = nil
+  local module = require("translator.module")
+  local original_executable = vim.fn.executable
+  local original_jobstart = vim.fn.jobstart
+  local original_jobstop = vim.fn.jobstop
+  local stopped_job
+  local done = false
+  local result
+  local err
+
+  vim.fn.executable = function()
+    return 1
+  end
+
+  vim.fn.jobstart = function()
+    return 42
+  end
+
+  vim.fn.jobstop = function(job_id)
+    stopped_job = job_id
+    return 1
+  end
+
+  module.translate("hello", "zh", nil, function(res, message)
+    result = res
+    err = message
+    done = true
+  end, 20)
+
+  assert_truthy(
+    vim.wait(200, function()
+      return done
+    end),
+    "expected timeout callback to complete"
+  )
+
+  vim.fn.executable = original_executable
+  vim.fn.jobstart = original_jobstart
+  vim.fn.jobstop = original_jobstop
+
+  assert_equal(stopped_job, 42, "timeout should stop the running job")
+  assert_equal(result, nil, "result should be nil on timeout")
+  assert_equal(err, "Translation timed out after 20ms", "unexpected timeout error")
+end)
+
 function M.run()
   local failures = {}
 

@@ -36,8 +36,9 @@ end
 ---@param target_lang string Target language (e.g., "zh", "en")
 ---@param source_lang string|nil Source language (optional)
 ---@param on_complete fun(result:string|nil, err:string|nil)
+---@param timeout_ms number|nil Command timeout in milliseconds
 ---@return integer|nil job_id
-M.translate = function(text, target_lang, source_lang, on_complete)
+M.translate = function(text, target_lang, source_lang, on_complete, timeout_ms)
   if not text or text == "" then
     on_complete(nil, "No text to translate")
     return nil
@@ -51,6 +52,7 @@ M.translate = function(text, target_lang, source_lang, on_complete)
   local cmd = build_command(text, target_lang, source_lang)
   local stdout = {}
   local stderr = {}
+  local completed = false
 
   local job_id = vim.fn.jobstart(cmd, {
     stdout_buffered = true,
@@ -63,6 +65,11 @@ M.translate = function(text, target_lang, source_lang, on_complete)
     end,
     on_exit = function(_, code)
       vim.schedule(function()
+        if completed then
+          return
+        end
+
+        completed = true
         local result = vim.trim(collect_chunks(stdout))
         local err_output = vim.trim(collect_chunks(stderr))
 
@@ -81,8 +88,22 @@ M.translate = function(text, target_lang, source_lang, on_complete)
   })
 
   if job_id <= 0 then
+    completed = true
     on_complete(nil, "Failed to start translate-shell command")
     return nil
+  end
+
+  timeout_ms = timeout_ms or 15000
+  if timeout_ms > 0 then
+    vim.defer_fn(function()
+      if completed then
+        return
+      end
+
+      completed = true
+      vim.fn.jobstop(job_id)
+      on_complete(nil, "Translation timed out after " .. timeout_ms .. "ms")
+    end, timeout_ms)
   end
 
   return job_id
