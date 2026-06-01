@@ -172,7 +172,7 @@ it("shows a warning when there is no text to translate", function()
 end)
 
 it("clamps popup size to the current editor dimensions", function()
-  local popup_opts
+  local popup_windows
   local original_columns = vim.o.columns
   local original_lines = vim.o.lines
 
@@ -196,18 +196,27 @@ it("clamps popup size to the current editor dimensions", function()
       end)
     end)
 
-    popup_opts = windows[2]
+    popup_windows = {}
+    for i = 2, #windows do
+      popup_windows[#popup_windows + 1] = windows[i]
+    end
   end)
 
   vim.o.columns = original_columns
   vim.o.lines = original_lines
 
-  assert_truthy(popup_opts ~= nil, "expected popup window to open")
-  assert_equal(popup_opts.width, 36, "popup width should be clamped")
-  assert_equal(popup_opts.height, 6, "popup height should be clamped")
+  assert_truthy(#popup_windows > 0, "expected popup windows to open")
+
+  local total_width = 0
+  for _, popup_window in ipairs(popup_windows) do
+    total_width = total_width + popup_window.width
+    assert_equal(popup_window.height, 6, "popup height should be clamped")
+  end
+
+  assert_equal(total_width, 36, "popup width should be clamped")
 end)
 
-it("renders the redesigned translation popup with source, result, and key hints", function()
+it("renders the redesigned translation popup with source, language direction, and result", function()
   local popup_windows
 
   with_fake_windows(function(windows)
@@ -227,7 +236,10 @@ it("renders the redesigned translation popup with source, result, and key hints"
       end)
     end)
 
-    popup_windows = vim.deepcopy(windows)
+    popup_windows = {}
+    for i = 2, #windows do
+      popup_windows[#popup_windows + 1] = vim.deepcopy(windows[i])
+    end
   end)
 
   local content_parts = {}
@@ -245,16 +257,21 @@ it("renders the redesigned translation popup with source, result, and key hints"
 
   local content = table.concat(content_parts, "\n")
 
-  assert_truthy(content:find("translator.nvim", 1, true), "popup should show the plugin title")
   assert_truthy(content:find("SOURCE", 1, true), "popup should show a source pane")
-  assert_truthy(content:find("TRANSLATION  en -> zh", 1, true), "popup should show language direction")
+  assert_truthy(content:find("en -> zh", 1, true), "popup should show language direction")
+  assert_truthy(content:find("TRANSLATION  en -> zh", 1, true), "popup should label the result pane")
   assert_truthy(content:find("hello", 1, true), "popup should include the source text")
   assert_truthy(content:find("你好", 1, true), "popup should include the translation")
-  assert_truthy(content:find("<leader>ts", 1, true), "popup should include selection shortcut")
-  assert_truthy(content:find("q close", 1, true), "popup should include close hint")
-  assert_truthy(content:find("from: en  to: zh", 1, true), "popup should include the footer language state")
+  assert_equal(content:find("translator.nvim", 1, true), nil, "popup should not render a title")
+  assert_equal(content:find("<leader>ts", 1, true), nil, "source pane should not include shortcuts")
+  assert_equal(content:find("q close", 1, true), nil, "source pane should not include key hints")
   assert_truthy(result_window ~= nil, "popup should render a separate translation pane")
   assert_equal(result_window.focusable, true, "translation pane should be focusable for scrolling")
+
+  for _, window in ipairs(popup_windows) do
+    assert_equal(window.border, nil, "popup windows should not use native borders")
+    assert_equal(window.title, nil, "popup windows should not use native titles")
+  end
 end)
 
 it("returns a clear error when translate-shell is unavailable", function()
