@@ -49,16 +49,21 @@ end
 
 local function with_fake_windows(fn)
   local original_open_win = vim.api.nvim_open_win
+  local original_win_set_option = vim.api.nvim_win_set_option
   local original_is_valid = vim.api.nvim_win_is_valid
   local original_close = vim.api.nvim_win_close
   local windows = {}
   local next_win = 1000
 
-  vim.api.nvim_open_win = function(_, _, opts)
+  vim.api.nvim_open_win = function(buf, _, opts)
     next_win = next_win + 1
-    windows[#windows + 1] = vim.deepcopy(opts)
+    local window = vim.deepcopy(opts)
+    window.buf = buf
+    windows[#windows + 1] = window
     return next_win
   end
+
+  vim.api.nvim_win_set_option = function() end
 
   vim.api.nvim_win_is_valid = function(win)
     return win >= 1001 and win <= next_win
@@ -69,6 +74,7 @@ local function with_fake_windows(fn)
   local ok, err = pcall(fn, windows)
 
   vim.api.nvim_open_win = original_open_win
+  vim.api.nvim_win_set_option = original_win_set_option
   vim.api.nvim_win_is_valid = original_is_valid
   vim.api.nvim_win_close = original_close
 
@@ -77,7 +83,7 @@ local function with_fake_windows(fn)
   end
 end
 
-vim.cmd("runtime plugin/translator.lua")
+vim.cmd("source plugin/translator.lua")
 
 it("parses bare text and key-value args", function()
   local command = require("translator.command")
@@ -144,11 +150,7 @@ it("translates the current word and normalizes the target language", function()
     end)
   end)
 
-  assert_equal(
-    captured,
-    { text = "hello", target_lang = "zh", source_lang = nil },
-    "translate_word should use <cword>"
-  )
+  assert_equal(captured, { text = "hello", target_lang = "zh", source_lang = nil }, "translate_word should use <cword>")
 end)
 
 it("shows a warning when there is no text to translate", function()
@@ -170,7 +172,7 @@ it("shows a warning when there is no text to translate", function()
 end)
 
 it("clamps popup size to the current editor dimensions", function()
-  local popup_opts
+  local popup_windows
   local original_columns = vim.o.columns
   local original_lines = vim.o.lines
 
@@ -194,15 +196,82 @@ it("clamps popup size to the current editor dimensions", function()
       end)
     end)
 
-    popup_opts = windows[2]
+    popup_windows = {}
+    for i = 2, #windows do
+      popup_windows[#popup_windows + 1] = windows[i]
+    end
   end)
 
   vim.o.columns = original_columns
   vim.o.lines = original_lines
 
-  assert_truthy(popup_opts ~= nil, "expected popup window to open")
-  assert_equal(popup_opts.width, 36, "popup width should be clamped")
-  assert_equal(popup_opts.height, 4, "popup height should be clamped")
+  assert_truthy(#popup_windows > 0, "expected popup windows to open")
+
+  local total_width = 0
+  for _, popup_window in ipairs(popup_windows) do
+    total_width = total_width + popup_window.width
+    assert_equal(popup_window.height, 6, "popup height should be clamped")
+  end
+
+  assert_equal(total_width, 36, "popup width should be clamped")
+end)
+
+it("renders the redesigned translation popup with source, language direction, and result", function()
+  local popup_windows
+
+  with_fake_windows(function(windows)
+    with_notify_capture(function()
+      with_translator({
+        translate = function(_, _, _, callback)
+          callback("你好\n\nhello, hi", nil)
+        end,
+      }, function(translator)
+        translator.setup({
+          window = {
+            width = 80,
+            height = 20,
+          },
+        })
+        translator.translate({ text = "hello", from = "en", to = "zh" })
+      end)
+    end)
+
+    popup_windows = {}
+    for i = 2, #windows do
+      popup_windows[#popup_windows + 1] = vim.deepcopy(windows[i])
+    end
+  end)
+
+  local content_parts = {}
+  local result_window
+
+  for _, window in ipairs(popup_windows) do
+    local lines = vim.api.nvim_buf_get_lines(window.buf, 0, -1, false)
+    local window_content = table.concat(lines, "\n")
+    content_parts[#content_parts + 1] = window_content
+
+    if window_content:find("TRANSLATION  en -> zh", 1, true) then
+      result_window = window
+    end
+  end
+
+  local content = table.concat(content_parts, "\n")
+
+  assert_truthy(content:find("SOURCE", 1, true), "popup should show a source pane")
+  assert_truthy(content:find("en -> zh", 1, true), "popup should show language direction")
+  assert_truthy(content:find("TRANSLATION  en -> zh", 1, true), "popup should label the result pane")
+  assert_truthy(content:find("hello", 1, true), "popup should include the source text")
+  assert_truthy(content:find("你好", 1, true), "popup should include the translation")
+  assert_equal(content:find("translator.nvim", 1, true), nil, "popup should not render a title")
+  assert_equal(content:find("<leader>ts", 1, true), nil, "source pane should not include shortcuts")
+  assert_equal(content:find("q close", 1, true), nil, "source pane should not include key hints")
+  assert_truthy(result_window ~= nil, "popup should render a separate translation pane")
+  assert_equal(result_window.focusable, true, "translation pane should be focusable for scrolling")
+
+  for _, window in ipairs(popup_windows) do
+    assert_equal(window.border, nil, "popup windows should not use native borders")
+    assert_equal(window.title, nil, "popup windows should not use native titles")
+  end
 end)
 
 it("returns a clear error when translate-shell is unavailable", function()
@@ -262,9 +331,12 @@ it("runs translate-shell asynchronously through jobstart", function()
     done = true
   end)
 
-  assert_truthy(vim.wait(200, function()
-    return done
-  end), "expected async callback to complete")
+  assert_truthy(
+    vim.wait(200, function()
+      return done
+    end),
+    "expected async callback to complete"
+  )
 
   vim.fn.executable = original_executable
   vim.fn.jobstart = original_jobstart
@@ -272,6 +344,52 @@ it("runs translate-shell asynchronously through jobstart", function()
   assert_equal(captured_cmd, { "trans", "en:zh", "-no-ansi", "hello" }, "unexpected translate command")
   assert_equal(result, "translated", "unexpected async result")
   assert_equal(err, nil, "did not expect an error on success")
+end)
+
+it("times out a translate-shell job that never exits", function()
+  package.loaded["translator.module"] = nil
+  local module = require("translator.module")
+  local original_executable = vim.fn.executable
+  local original_jobstart = vim.fn.jobstart
+  local original_jobstop = vim.fn.jobstop
+  local stopped_job
+  local done = false
+  local result
+  local err
+
+  vim.fn.executable = function()
+    return 1
+  end
+
+  vim.fn.jobstart = function()
+    return 42
+  end
+
+  vim.fn.jobstop = function(job_id)
+    stopped_job = job_id
+    return 1
+  end
+
+  module.translate("hello", "zh", nil, function(res, message)
+    result = res
+    err = message
+    done = true
+  end, 20)
+
+  assert_truthy(
+    vim.wait(200, function()
+      return done
+    end),
+    "expected timeout callback to complete"
+  )
+
+  vim.fn.executable = original_executable
+  vim.fn.jobstart = original_jobstart
+  vim.fn.jobstop = original_jobstop
+
+  assert_equal(stopped_job, 42, "timeout should stop the running job")
+  assert_equal(result, nil, "result should be nil on timeout")
+  assert_equal(err, "Translation timed out after 20ms", "unexpected timeout error")
 end)
 
 function M.run()

@@ -3,23 +3,19 @@ local translator = require("translator.module")
 ---@class WindowConfig
 ---@field width number Popup window width
 ---@field height number Popup window height
----@field title string Popup window title
----@field border string Border style (e.g., "rounded", "single", "double", "solid")
----@field title_pos string Title position (e.g., "center", "left", "right")
 
 ---@class Config
 ---@field default_target_lang string Default target language
 ---@field default_source_lang string|nil Default source language
+---@field timeout_ms number Translation command timeout in milliseconds
 ---@field window WindowConfig Window configuration
 local defaults = {
   default_target_lang = "zh",
   default_source_lang = nil,
+  timeout_ms = 15000,
   window = {
     width = 80,
     height = 20,
-    title = " Translation ",
-    border = "rounded",
-    title_pos = "center",
   },
 }
 
@@ -116,18 +112,70 @@ local function get_editor_bounds()
   return width, height
 end
 
+local function display_width(text)
+  return vim.fn.strdisplaywidth(text or "")
+end
+
+local function wrap_display(text, width)
+  if not text or text == "" then
+    return { "" }
+  end
+
+  local wrapped = {}
+
+  for _, line in ipairs(vim.split(text, "\n", { plain = true })) do
+    if line == "" then
+      wrapped[#wrapped + 1] = ""
+    else
+      local current = {}
+      local current_width = 0
+      local char_count = vim.fn.strchars(line)
+
+      for i = 0, char_count - 1 do
+        local char = vim.fn.strcharpart(line, i, 1)
+        local char_width = display_width(char)
+
+        if current_width > 0 and current_width + char_width > width then
+          wrapped[#wrapped + 1] = table.concat(current)
+          current = { char }
+          current_width = char_width
+        else
+          current[#current + 1] = char
+          current_width = current_width + char_width
+        end
+      end
+
+      wrapped[#wrapped + 1] = table.concat(current)
+    end
+  end
+
+  return wrapped
+end
+
+local function normalize_lang(lang)
+  if not lang or lang == "" then
+    return "auto"
+  end
+
+  return lang
+end
+
 --- Show loading window
+---@param source_lang string|nil Source language
+---@param target_lang string Target language
 ---@return number|nil win_id Window ID of the loading window
-local function show_loading()
+local function show_loading(source_lang, target_lang)
   local buf = vim.api.nvim_create_buf(false, true)
 
   -- Set loading message
-  local lines = { "  Translating...  " }
+  local direction = normalize_lang(source_lang) .. " -> " .. normalize_lang(target_lang)
+  local message = " Translating · " .. direction .. " "
+  local lines = { message }
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 
   -- Calculate position (center of screen)
   local max_width, _ = get_editor_bounds()
-  local width = math.min(20, max_width)
+  local width = math.min(display_width(message), max_width)
   local height = 1
   local row = math.max(math.floor((vim.o.lines - height) / 2), 0)
   local col = math.max(math.floor((vim.o.columns - width) / 2), 0)
@@ -161,46 +209,196 @@ local function close_loading(win_id)
   end
 end
 
---- Show translation result in popup window
----@param text string Translation result
-local function show_popup(text)
+local function set_window_options(win, opts)
+  opts = opts or {}
+  vim.api.nvim_win_set_option(win, "wrap", opts.wrap == true)
+  vim.api.nvim_win_set_option(win, "cursorline", opts.cursorline == true)
+  vim.api.nvim_win_set_option(win, "signcolumn", "no")
+  vim.api.nvim_win_set_option(win, "winhighlight", "Normal:NormalFloat,FloatBorder:FloatBorder")
+end
+
+local function make_popup_buffer(lines, filetype)
   local buf = vim.api.nvim_create_buf(false, true)
 
-  -- Split text into lines
-  local lines = vim.split(text, "\n")
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.api.nvim_buf_set_option(buf, "modifiable", false)
+  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
 
-  -- Calculate popup position (center of screen)
+  if filetype then
+    vim.api.nvim_buf_set_option(buf, "filetype", filetype)
+  end
+
+  return buf
+end
+
+local function repeat_line(line, count)
+  local lines = {}
+
+  for _ = 1, count do
+    lines[#lines + 1] = line
+  end
+
+  return lines
+end
+
+local function setup_popup_highlights()
+  vim.api.nvim_set_hl(0, "TranslatorHeader", { default = true, link = "Identifier" })
+  vim.api.nvim_set_hl(0, "TranslatorBorder", { default = true, link = "FloatBorder" })
+end
+
+local function highlight_line(buf, ns, line, group)
+  vim.api.nvim_buf_add_highlight(buf, ns, group, line, 0, -1)
+end
+
+local function apply_highlights(buf, lines)
+  local ns = vim.api.nvim_create_namespace("translator_popup")
+
+  for i, line in ipairs(lines) do
+    local line_index = i - 1
+
+    if line:find("SOURCE", 1, true) or line:find("TRANSLATION", 1, true) then
+      highlight_line(buf, ns, line_index, "TranslatorHeader")
+    elseif line:find("─", 1, true) or line:find("│", 1, true) then
+      highlight_line(buf, ns, line_index, "TranslatorBorder")
+    end
+  end
+end
+
+local function set_popup_keymaps(buf, close_popup)
+  vim.keymap.set("n", "q", close_popup, { buffer = buf, nowait = true, silent = true })
+  vim.keymap.set("n", "<Esc>", close_popup, { buffer = buf, nowait = true, silent = true })
+end
+
+local function build_source_lines(source_text, source_lang, target_lang, width)
+  local direction = normalize_lang(source_lang) .. " -> " .. normalize_lang(target_lang)
+  local lines = {
+    "SOURCE",
+    direction,
+    "",
+  }
+
+  vim.list_extend(lines, wrap_display(source_text, width))
+
+  return lines
+end
+
+local function build_result_lines(result, source_lang, target_lang, width)
+  local direction = normalize_lang(source_lang) .. " -> " .. normalize_lang(target_lang)
+  local lines = {
+    "TRANSLATION  " .. direction,
+    "",
+  }
+
+  vim.list_extend(lines, wrap_display(result, width))
+
+  return lines
+end
+
+local function popup_layout()
   local max_width, max_height = get_editor_bounds()
   local width = clamp(M.config.window.width, 1, max_width)
-  local requested_height = math.max(#lines + 2, 1)
-  local height = clamp(math.min(M.config.window.height, requested_height), 1, max_height)
+  local height = clamp(M.config.window.height, 1, max_height)
   local row = math.max(math.floor((vim.o.lines - height) / 2), 0)
   local col = math.max(math.floor((vim.o.columns - width) / 2), 0)
+  local separator_width = width >= 25 and 1 or 0
+  local left_width = math.floor(width * 0.38)
 
-  -- Create popup window
-  local opts = {
-    relative = "editor",
+  if separator_width == 0 then
+    left_width = 0
+  else
+    left_width = clamp(left_width, 12, math.max(12, width - separator_width - 12))
+  end
+
+  local right_width = math.max(width - left_width - separator_width, 1)
+
+  return {
     width = width,
     height = height,
     row = row,
     col = col,
-    style = "minimal",
-    border = M.config.window.border,
-    title = M.config.window.title,
-    title_pos = M.config.window.title_pos,
+    body_height = height,
+    left_width = left_width,
+    separator_width = separator_width,
+    right_width = right_width,
   }
+end
 
-  local win = vim.api.nvim_open_win(buf, true, opts)
+--- Show translation result in popup window
+---@param source_text string Source text
+---@param text string Translation result
+---@param source_lang string|nil Source language
+---@param target_lang string Target language
+local function show_popup(source_text, text, source_lang, target_lang)
+  local layout = popup_layout()
+  local source_lines = build_source_lines(source_text, source_lang, target_lang, math.max(layout.left_width, 1))
+  local source_buf = make_popup_buffer(source_lines)
+  local separator_lines = repeat_line("│", layout.body_height)
+  local separator_buf = make_popup_buffer(separator_lines)
+  local result_lines = build_result_lines(text, source_lang, target_lang, layout.right_width)
+  local result_buf = make_popup_buffer(result_lines, "markdown")
+  local wins = {}
+  local result_win
 
-  -- Set buffer options
-  vim.api.nvim_buf_set_option(buf, "modifiable", false)
-  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
-  vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+  setup_popup_highlights()
+  apply_highlights(source_buf, source_lines)
+  apply_highlights(separator_buf, separator_lines)
+  apply_highlights(result_buf, result_lines)
 
-  -- Close popup with q or <Esc>
-  vim.api.nvim_buf_set_keymap(buf, "n", "q", "<cmd>close<cr>", { noremap = true, silent = true })
-  vim.api.nvim_buf_set_keymap(buf, "n", "<Esc>", "<cmd>close<cr>", { noremap = true, silent = true })
+  local function close_popup()
+    for i = #wins, 1, -1 do
+      local win = wins[i]
+      if win and vim.api.nvim_win_is_valid(win) then
+        pcall(vim.api.nvim_win_close, win, true)
+      end
+    end
+  end
+
+  for _, buf in ipairs({ source_buf, result_buf }) do
+    set_popup_keymaps(buf, close_popup)
+  end
+
+  if layout.left_width > 0 then
+    wins[#wins + 1] = vim.api.nvim_open_win(source_buf, false, {
+      relative = "editor",
+      width = layout.left_width,
+      height = layout.body_height,
+      row = layout.row,
+      col = layout.col,
+      style = "minimal",
+      focusable = false,
+      zindex = 51,
+    })
+
+    wins[#wins + 1] = vim.api.nvim_open_win(separator_buf, false, {
+      relative = "editor",
+      width = layout.separator_width,
+      height = layout.body_height,
+      row = layout.row,
+      col = layout.col + layout.left_width,
+      style = "minimal",
+      focusable = false,
+      zindex = 51,
+    })
+  end
+
+  result_win = vim.api.nvim_open_win(result_buf, true, {
+    relative = "editor",
+    width = layout.right_width,
+    height = layout.body_height,
+    row = layout.row,
+    col = layout.col + layout.left_width + layout.separator_width,
+    style = "minimal",
+    focusable = true,
+    zindex = 52,
+  })
+  wins[#wins + 1] = result_win
+
+  for i = 1, #wins do
+    set_window_options(wins[i], { wrap = false, cursorline = false })
+  end
+  set_window_options(result_win, { wrap = false, cursorline = true })
+
+  return result_buf, result_win
 end
 
 --- Main translate function
@@ -228,7 +426,7 @@ M.translate = function(opts)
   local source_lang = opts.from or M.config.default_source_lang
 
   -- Show loading window
-  local loading_win = show_loading()
+  local loading_win = show_loading(source_lang, target_lang)
 
   translator.translate(text, target_lang, source_lang, function(result, err)
     close_loading(loading_win)
@@ -239,12 +437,12 @@ M.translate = function(opts)
     end
 
     if result and result ~= "" then
-      show_popup(result)
+      show_popup(text, result, source_lang, target_lang)
       return
     end
 
     vim.notify("Translation returned no result", vim.log.levels.WARN)
-  end)
+  end, M.config.timeout_ms)
 end
 
 --- Translate word under cursor

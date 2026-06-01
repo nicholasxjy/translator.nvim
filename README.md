@@ -43,9 +43,6 @@ chmod +x ./trans
         window = {
             width = 80,              -- Popup window width
             height = 20,             -- Popup window max height
-            title = " Translation ", -- Popup window title
-            border = "rounded",      -- Border style: "rounded", "single", "double", "solid", "shadow", "none"
-            title_pos = "center",    -- Title position: "center", "left", "right"
         },
     },
 }
@@ -67,9 +64,6 @@ require("translator").setup({
     window = {
         width = 80,              -- Popup window width
         height = 20,             -- Popup window max height
-        title = " Translation ", -- Popup window title
-        border = "rounded",      -- Border style: "rounded", "single", "double", "solid", "shadow", "none"
-        title_pos = "center",    -- Title position: "center", "left", "right"
     },
 })
 ```
@@ -141,9 +135,6 @@ end, { desc = "Translate selection to Chinese" })
         window = {
             width = 80,
             height = 20,
-            title = " Translation ",
-            border = "rounded",
-            title_pos = "center",
         },
     },
     keys = {
@@ -163,7 +154,7 @@ end, { desc = "Translate selection to Chinese" })
 
 ### Features
 
-- **Popup Window**: Translation results are displayed in a centered popup window with rounded borders
+- **Popup Window**: Translation results are displayed in a centered two-pane popup
 - **Visual Selection**: Select text and translate it directly
 - **Word Translation**: Translate the word under cursor with `:TransWord` command
 - **Multi-word Command Input**: `:Trans` supports bare text and quoted `text=` values
